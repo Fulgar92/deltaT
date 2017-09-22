@@ -1,0 +1,105 @@
+{% extends '::base.html.twig' %}
+{% set page_title = 'Gestione Core' %}
+
+{% block form_content %}
+    <div class="table-responsive">
+        <table class="table" id="requestCore">
+            <tr class="success">
+                <td>
+                    Nome core
+                </td>
+                <td>
+                    URL
+                </td>
+            </tr>
+        </table>
+    </div>
+
+
+{% endblock %}
+
+{% block javascripts %}
+    <script>
+        $.ajax({
+            method: "GET",
+            url: "/getRequestInfoCore",
+            success: function (response) {
+                $.each(response, function (k, v) {
+                    $('#requestCore').append('' +
+                        '<tr>' +
+                        '<td>' + v.name + ' - ' + v.idCore +
+                        '</td>' +
+                        '<td><input style="margin: 10px; height: 24px; min-width: 110px" class="urlCoreLink" type="button" value="Info Core" url="https://battlemap.deltatgame.com/core/' + v.idCore + '">' +
+                        '</td>' +
+                        '</tr>');
+                })
+            },
+            error: function (error) {
+            }
+        });
+
+        $('body').on('click', '.urlCoreLink', function () {
+            const url = $(this).attr('url');
+            var text = "Inserire il testo che ti viene restituito dalla pagina aperta.";
+            swal({
+                title: "Aggiunta informazioni core",
+                html: text,
+                input: 'textarea',
+                showCancelButton: false,
+                confirmButtonText: 'Invia',
+                showLoaderOnConfirm: true,
+                preConfirm: function (datiJson) {
+                    return new Promise(function (resolve, reject) {
+                        if (datiJson === '' || datiJson === null) {
+                            reject(text)
+                        } else {
+                            resolve()
+                        }
+                    })
+                },
+                allowOutsideClick: false
+            }).then(function (datiJson) {
+                var dati = jQuery.parseJSON(datiJson);
+                console.log(dati.core_details);
+
+                jQuery.ajax({
+                    method: "GET",
+                    url: "/addCore",
+                    data: jQuery.param({
+                        infoCore: dati.core_details
+                    }),
+                    success: function () {
+                        jQuery.ajax({
+                            method: "GET",
+                            url: "/addRequestInfoCore",
+                            data: jQuery.param({
+                                infoCore: dati.core_details,
+                                update: '1'
+                            }),
+                            success: function () {
+                                location.reload();
+                            },
+                            error: function () {
+
+                            }
+                        });
+
+                    },
+                    error: function () {
+
+                    }
+                });
+            });
+
+            var win = window.open(url, '_blank');
+            if (win) {
+                win.focus();
+            } else {
+                //Browser has blocked it
+                alert('È necessario abilitare i popup per procedere');
+            }
+        })
+    </script>
+{% endblock %}
+
+

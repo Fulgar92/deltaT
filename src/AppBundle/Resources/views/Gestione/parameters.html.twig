@@ -1,0 +1,95 @@
+{% extends '::base.html.twig' %}
+{% set page_title = 'Gestione Parametri Mappa' %}
+
+{% block form_content %}
+    <div class="form-group">
+        <label>Latitudine</label>
+        <input id="txt-latitude" class="form-control" placeholder="Inserire latitudine">
+    </div>
+    <div class="form-group">
+        <label>Longitudine</label>
+        <input id="txt-longitude" class="form-control" placeholder="Inserire longitudine">
+    </div>
+    <div class="form-group">
+        <label>Zoom</label>
+        <input id="txt-zoom" class="form-control" placeholder="Inserire zoom">
+    </div>
+    <button id="btn_parameters" type="button" class="btn btn-primary">Modifica parametri</button>
+{% endblock %}
+
+{% block javascripts %}
+    <script>
+        jQuery.when(getParameters('Latitude'), getParameters('Longitude'), getParameters('Zoom')).done(function (latitude, longitude, zoom) {
+            document.getElementById("txt-latitude").setAttribute("value", latitude[0]);
+            document.getElementById("txt-longitude").setAttribute("value", longitude[0]);
+            document.getElementById("txt-zoom").setAttribute("value", zoom[0]);
+        });
+
+        var txt_latitude = $('#txt-latitude');
+        var txt_longitude = $('#txt-longitude');
+        var txt_zoom = $('#txt-zoom');
+
+        txt_latitude.keydown(function (e) {
+            onlyNumberInput(e)
+        });
+        txt_longitude.keydown(function (e) {
+            onlyNumberInput(e)
+        });
+        txt_longitude.keydown(function (e) {
+            onlyNumberInput(e)
+        });
+
+        $('#btn_parameters').click(function () {
+            var latitude = txt_latitude.val();
+            var longitude = txt_longitude.val();
+            var zoom = txt_zoom.val();
+
+            jQuery.ajax({
+                method: "GET",
+                url: "/gestione/setParameters",
+                data: jQuery.param({
+                    latitude: latitude,
+                    longitude: longitude,
+                    zoom: zoom
+                }),
+                success: function () {
+                    location.reload();
+                },
+                error: function (error) {
+                    console.log(error);
+                }
+            });
+        });
+
+        function getParameters(value) {
+            return jQuery.ajax({
+                method: "GET",
+                url: "/gestione/getParameters",
+                data: jQuery.param({
+                    field: value
+                }),
+                success: function () {
+                },
+                error: function () {
+                }
+            });
+        }
+
+        function onlyNumberInput(e) {
+            // Allow: backspace, delete, tab, escape, enter and .
+            if ($.inArray(e.keyCode, [46, 8, 9, 27, 13, 110, 190]) !== -1 ||
+                // Allow: Ctrl+A, Command+A
+                (e.keyCode === 65 && (e.ctrlKey === true || e.metaKey === true)) ||
+                // Allow: home, end, left, right, down, up
+                (e.keyCode >= 35 && e.keyCode <= 40)) {
+                // let it happen, don't do anything
+                return;
+            }
+            // Ensure that it is a number and stop the keypress
+            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                e.preventDefault();
+            }
+        }
+    </script>
+{% endblock %}
+

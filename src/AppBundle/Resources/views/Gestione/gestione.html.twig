@@ -1,0 +1,13 @@
+{% extends "::base.html.twig" %}
+
+{% set page_title = 'Gestione' %}
+
+{% block form_content %}
+    <div>
+        <p>Selezionare Core o Base</p>
+            {#<a href="{{ path('fos_user_security_login') }}">{{ 'public_link.login_return'|trans }}</a></p>#}
+            <a href="{{path('app_gestione_core')}}">Core</a>
+            <br>
+            {#<a href="{{path('app_gestione_bases')}}">Basi</a>#}
+    </div>
+{% endblock %}

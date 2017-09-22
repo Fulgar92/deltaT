@@ -1,0 +1,15 @@
+# This file is auto-generated during the composer install
+parameters:
+    database_host: localhost
+    database_port: null
+    database_name: deltatmaps
+    database_user: root
+    database_password: Silvio;92
+    mailer_transport: smtp
+    mailer_host: 127.0.0.1
+    mailer_user: null
+    mailer_password: null
+    secret: 84018a7920dc610391adff4e4166f168f78def86
+    google_api_key: AIzaSyBxqm7Z974JIro3CKGEGaVW4i4-9M7iQxk
+    site_name: Mappa DeltaT
+    time_popup: 2500

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/6.6.10/sweetalert2.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/6.6.10/sweetalert2.min.css">
+    <link rel="shortcut icon" type="image/ico" href="{{ asset('bundles/app/images/deltaT.ico') }}"/>
+
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>Mappa core DeltaT</title>
+    <style>
+        /* Always set the map height explicitly to define the size of the div
+         * element that contains the map. */
+        #map {
+            height: 100%;
+        }
+
+        /* Optional: Makes the sample page fill the window. */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #description {
+            font-family: Roboto;
+            font-size: 15px;
+            font-weight: 300;
+        }
+
+        #infowindow-content .title {
+            font-weight: bold;
+        }
+
+        #infowindow-content {
+            display: none;
+        }
+
+        #map #infowindow-content {
+            display: inline;
+        }
+
+        .pac-card {
+            margin: 10px 10px 0 0;
+            border-radius: 2px 0 0 2px;
+            box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            outline: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            background-color: #fff;
+            font-family: Roboto;
+        }
+
+        #pac-container {
+            padding-bottom: 12px;
+            margin-right: 12px;
+        }
+
+        .pac-controls {
+            display: inline-block;
+            padding: 5px 11px;
+        }
+
+        .pac-controls label {
+            font-family: Roboto;
+            font-size: 13px;
+            font-weight: 300;
+        }
+
+        #pac-input {
+            background-color: #fff;
+            font-family: Roboto;
+            font-size: 15px;
+            font-weight: 300;
+            margin-left: 12px;
+            padding: 0 11px 0 13px;
+            text-overflow: ellipsis;
+            width: 400px;
+        }
+
+        #pac-input:focus {
+            border-color: #4d90fe;
+        }
+
+        .content {
+            background-color: black;
+
+        }
+    </style>
+</head>
+<body>
+
+<input id="pac-input" class="controls" type="text" placeholder="Ricerca località"
+       style="margin: 10px; height: 24px; max-width: 430px;width: 40%">
+<input id="btn_input_core" type="button" value="Core" style="margin: 10px; height: 24px; min-width: 110px">
+<input id="btn_input_base" type="button" value="Base" style="margin: 10px; height: 24px; min-width: 110px">
+<div id="map"></div>
+<script>
+    var marker;
+    var infowindow;
+    var contentString;
+
+    function getParameters(value) {
+        return jQuery.ajax({
+            method: "GET",
+            url: "/gestione/getParameters",
+            data: jQuery.param({
+                field: value
+            }),
+            success: function () {
+            },
+            error: function () {
+            }
+        });
+    }
+
+    function initAutocomplete() {
+        jQuery.when(getParameters('Latitude'), getParameters('Longitude'), getParameters('Zoom')).done(function (latitude, longitude, zoom) {
+            var map = new google.maps.Map(document.getElementById('map'), {
+//            center: {lat: 45.055576, lng: 7.647682},
+                center: {lat: parseFloat(latitude[0]), lng: parseFloat(longitude[0])},
+//            zoom: 12
+                zoom: parseInt(zoom[0])
+            });
+
+            // Create the search box and link it to the UI element.
+            var input = document.getElementById('pac-input');
+            var btn_core = document.getElementById('btn_input_core');
+            var btn_base = document.getElementById('btn_input_base');
+            var searchBox = new google.maps.places.SearchBox(input);
+            map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+            map.controls[google.maps.ControlPosition.LEFT].push(btn_core);
+            map.controls[google.maps.ControlPosition.LEFT].push(btn_base);
+
+            // Bias the SearchBox results towards current map's viewport.
+            map.addListener('bounds_changed', function () {
+                searchBox.setBounds(map.getBounds());
+            });
+
+            // Listen for the event fired when the user selects a prediction and retrieve
+            // more details for that place.
+            searchBox.addListener('places_changed', function () {
+                var places = searchBox.getPlaces();
+                if (places.length == 0) {
+                    return;
+                }
+
+                // Clear out the old markers.
+//            markers.forEach(function (marker) {
+//                marker.setMap(null);
+//            });
+//            markers = [];
+
+                // For each place, get the icon, name and location.
+                var bounds = new google.maps.LatLngBounds();
+                places.forEach(function (place) {
+                    if (!place.geometry) {
+                        console.log("Returned place contains no geometry");
+                        return;
+                    }
+
+                    if (place.geometry.viewport) {
+                        // Only geocodes have viewport.
+                        bounds.union(place.geometry.viewport);
+                    } else {
+                        bounds.extend(place.geometry.location);
+                    }
+                });
+                map.fitBounds(bounds);
+
+            });
+
+            $("#btn_input_core").click(function () {
+                var type = 'core';
+                var url = getUrl(map, type);
+
+                getInformation(type, url, map);
+                setTimeout(function () {
+                    var win = window.open(url, '_blank');
+                    if (win) {
+                        win.focus();
+                    } else {
+                        //Browser has blocked it
+                        alert('È necessario abilitare i popup per procedere');
+                    }
+                }, {{ time_popup }})
+
+            });
+            $("#btn_input_base").click(function () {
+                var type = 'base';
+                var url = getUrl(map, type);
+
+                getInformation(type, url, map);
+                setTimeout(function () {
+                    var win = window.open(url, '_blank');
+                    if (win) {
+                        win.focus();
+                    } else {
+                        //Browser has blocked it
+                        alert('È necessario abilitare i popup per procedere');
+                    }
+                }, {{ time_popup }})
+
+            });
+        });
+    }
+
+
+    // Mi restituisce URL contenente i dati che mi servono
+    function getUrl(map, type) {
+        var bounds = map.getBounds();
+
+        var ne = bounds.getNorthEast();
+        var sw = bounds.getSouthWest();
+
+        if (type === 'core') {
+            var url = 'https://battlemap.deltatgame.com/core_data/LatLng(' + ne.lat() + ',%20' + ne.lng() + ')/LatLng(' + sw.lat() + ',%20' + sw.lng() + ')/LatLng(' + ne.lat() + ',%20' + sw.lng() + ')/LatLng(' + sw.lat() + ',%20' + ne.lng() + ')';
+        }
+        else {
+            var url = 'https://battlemap.deltatgame.com/base_data/LatLng(' + ne.lat() + ',%20' + ne.lng() + ')/LatLng(' + sw.lat() + ',%20' + sw.lng() + ')/LatLng(' + ne.lat() + ',%20' + sw.lng() + ')/LatLng(' + sw.lat() + ',%20' + ne.lng() + ')/0/0';
+        }
+
+        return url;
+    }
+
+    function infoMarker(contentString, myLatlng, map, marker) {
+        infowindow = new google.maps.InfoWindow({
+            content: contentString,
+            position: myLatlng
+        });
+
+        infowindow.open(map, marker);
+    }
+
+    // Crea un alert che mi permette di prendere in input i dati su basi o core, in base al pulsante premuto
+    function getInformation(type, url, map) {
+        if (type === 'core') {
+            var title = 'Localizzazione dei core';
+            var text = 'Copiare i dati riguardanti i core ricavati dalla pagina che si è aperta automaticamente';
+        }
+        else {
+            var title = 'Localizzazione delle basi';
+            var text = 'Copiare i dati riguardanti le basi ricavati dalla pagina che si è aperta automaticamente';
+        }
+        swal({
+            title: title,
+            html: text,
+            input: 'textarea',
+            showCancelButton: false,
+            confirmButtonText: 'Invia',
+            showLoaderOnConfirm: true,
+            preConfirm: function (datiJson) {
+                return new Promise(function (resolve, reject) {
+                    setTimeout(function () {
+                        if (datiJson === '' || datiJson === null) {
+                            reject(text)
+                        } else {
+                            resolve()
+                        }
+                    }, {{ time_popup }})
+                })
+            },
+            allowOutsideClick: false
+        }).then(function (datiJson) {
+            var dati = jQuery.parseJSON(datiJson);
+            if (type === 'core') {
+                jQuery.each(dati.core, function (key, value) {
+                    var myLatlng = new google.maps.LatLng(value.latitude, value.longitude);
+                    switch (value.controlling_faction_id) {
+                        case 1:
+                            //Gialli
+                            var img = '{{ asset('bundles/app/images/C60_Labs_Core.png') }}';
+                            break;
+                        case 2:
+                            //Verdi
+                            var img = '{{ asset('bundles/app/images/Cosmostellar_Core.png') }}';
+                            break;
+                        case 3:
+                            //Rossi
+                            var img = '{{ asset('bundles/app/images/Humanoid_Core.png') }}';
+                            break;
+                        case 4:
+                            //Blu
+                            var img = '{{ asset('bundles/app/images/Genex_Core.png') }}';
+                            break;
+                        case 5:
+                            //Neutro
+                            var img = '{{ asset('bundles/app/images/Nutral_Core.png') }}';
+                            break;
+
+                        default:
+                            var url = '{{ asset('bundles/app/images/Nutral_Core.png') }}';
+                    }
+                    var icon = {
+                        url: img,
+                        size: new google.maps.Size(15, 15),
+                        origin: new google.maps.Point(0, 0),
+                        anchor: new google.maps.Point(0, 15)
+                    };
+                    marker = new google.maps.Marker({
+                        map: map,
+                        position: myLatlng,
+                        icon: icon,
+                        title: value.name
+                    });
+
+                    google.maps.event.addListener(marker, 'click', (function (marker) {
+                        return function () {
+                            if (infowindow) {
+                                infowindow.close();
+                            }
+
+                            $.ajax({
+                                method: "GET",
+                                url: "/getInfoCore",
+                                data: jQuery.param({
+                                    idCore: value.id
+                                }),
+                                success: function (response) {
+                                    contentString =
+                                        '<div id="content">' +
+                                        '<div id="siteNotice">' +
+                                        '</div>' +
+                                        '<h1 id="firstHeading" class="firstHeading">' + response.name + '</h1>' +
+                                        '<div id="bodyContent">' +
+                                        '<p>Creator: ' + response.creatorName + '</p>' +
+                                        '<p>Owner: ' + response.ownerName + '</p>' +
+                                        '<p>Level: ' + response.levelId + '</p>' +
+                                        '<p>Last Update: ' + response.updateDate.date.substring(0, 16) + '</p>' +
+                                        '<a href="#" onclick="' + addRequestInfoCore(value, null) + '">Richiedi aggiornamento</a>' +
+                                        '</div>' +
+                                        '</div>';
+
+                                    infoMarker(contentString, myLatlng, map, marker)
+                                },
+                                error: function () {
+                                    contentString =
+                                        '<div id="content">' +
+                                        '<div id="siteNotice">' +
+                                        '</div>' +
+                                        '<h4 id="firstHeading" class="firstHeading">' + value.name + '</h4>' +
+                                        '<div id="bodyContent">' +
+                                        '<p>Attualmente non sono disponibili informazioni</p>' +
+                                        '</div>' +
+                                        '</div>';
+
+                                    addRequestInfoCore(value, null);
+
+                                    infoMarker(contentString, myLatlng, map, marker)
+                                }
+                            });
+//
+//                            contentString =
+//                                '<div id="content">'+
+//                                '<div id="siteNotice">'+
+//                                '</div>'+
+//                                '<h4 id="firstHeading" class="firstHeading">' + value.name + '</h4>'+
+//                                '<div id="bodyContent">'+
+//                                '<p>Attualmente non sono disponibili informazioni</p>'+
+//                                '</div>'+
+//                                '</div>';
+                        }
+                    })(marker));
+
+                })
+            }
+            else {
+                jQuery.each(dati.base, function (key, value) {
+                    var myLatlng = new google.maps.LatLng(value.latitude, value.longitude);
+
+                    console.log(value.id);
+//                    var urlBase = 'https://battlemap.deltatgame.com/base/' + value.id;
+//                    jQuery.get(urlBase, function(result){
+//                            console.log(result);
+//                        }
+//                    );
+
+                    switch (value.faction) {
+                        case 0:
+                            //Gialli
+                            var img = '{{ asset('bundles/app/images/C60_Labs.png') }}';
+                            var color = 'yellow';
+                            break;
+                        case 1:
+                            //Verdi
+                            var img = '{{ asset('bundles/app/images/Cosmostellar.png') }}';
+                            var color = 'green';
+                            break;
+                        case 3:
+                            //Rossi
+                            var img = '{{ asset('bundles/app/images/Humanoid.png') }}';
+                            var color = 'red';
+                            break;
+                        case 2:
+                            //Blu
+                            var img = '{{ asset('bundles/app/images/Gene_X.png') }}';
+                            var color = 'blue';
+                            break;
+                        case 4:
+                            //Neutro
+                            var img = '{{ asset('bundles/app/images/Neutral.png') }}';
+                            var color = 'gray';
+                            break;
+
+                        default:
+                            var url = '{{ asset('bundles/app/images/Neutral.png') }}';
+                            var color = 'gray';
+                    }
+                    var icon = {
+                        url: img,
+                        size: new google.maps.Size(15, 15),
+                        origin: new google.maps.Point(0, 0),
+                        anchor: new google.maps.Point(0, 15)
+                    };
+//                    var infoBase = '<div id="content">'+
+//                        '<div id="siteNotice">'+
+//                        '</div>'+
+//                        '<h1 id="firstHeading" class="firstHeading">' + value.name + '</h1>'+
+//                        '<h1>Owned by' + value.name + '</h1>'+
+//                        '<h1 id="firstHeading" class="firstHeading">' + value.name + '</h1>'+
+//                        '<div id="bodyContent">'+
+//                        '<p><b>Uluru</b>, also referred to as <b>Ayers Rock</b>, is a large ' +
+//                        'sandstone rock formation in the southern part of the '+
+//                        'Northern Territory, central Australia. It lies 335&#160;km (208&#160;mi) '+
+//                        'south west of the nearest large town, Alice Springs; 450&#160;km '+
+//                        '(280&#160;mi) by road. Kata Tjuta and Uluru are the two major '+
+//                        'features of the Uluru - Kata Tjuta National Park. Uluru is '+
+//                        'sacred to the Pitjantjatjara and Yankunytjatjara, the '+
+//                        'Aboriginal people of the area. It has many springs, waterholes, '+
+//                        'rock caves and ancient paintings. Uluru is listed as a World '+
+//                        'Heritage Site.</p>'+
+//                        '<p>Attribution: Uluru, <a href="https://en.wikipedia.org/w/index.php?title=Uluru&oldid=297882194">'+
+//                        'https://en.wikipedia.org/w/index.php?title=Uluru</a> '+
+//                        '(last visited June 22, 2009).</p>'+
+//                        '</div>'+
+//                        '</div>';
+                    marker = new google.maps.Marker({
+                        map: map,
+                        position: myLatlng,
+                        icon: icon,
+                        title: value.name
+                    });
+                })
+            }
+        })
+    }
+
+    function addRequestInfoCore(value, update) {
+        jQuery.ajax({
+            method: "GET",
+            url: "/addRequestInfoCore",
+            data: jQuery.param({
+                infoCore: value,
+                update: update
+            }),
+            success: function (response) {
+
+            },
+            error: function (error) {
+
+            }
+        });
+    }
+
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&libraries=places&callback=initAutocomplete"
+        async defer></script>
+</body>
+</html>
